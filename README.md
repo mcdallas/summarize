@@ -1,7 +1,29 @@
 
 ## About
 
-A simple CLI tool to summarize audio files. Uses the OPENAI whisper API to transcribe the audio to text and then the OPENAI ChatGPT API to summarize the text.
+A simple CLI tool to summarize audio files. Uses the OpenAI whisper API to transcribe the audio to text and then the OpenAI ChatGPT API to summarize the text.
+
+## Installation
+
+#### Using cargo
+
+If you already have Rust installed, you can install using `cargo` 
+```shell script
+cargo install summarize
+```
+
+#### Using homebrew
+
+```shell script
+brew tap mcdallas/summarize
+brew install summarize
+```
+
+#### Github Release
+
+just grab the [latest release](https://github.com/mcdallas/summarize/releases/latest) for your OS 
+
+
 
 ## Usage
 
