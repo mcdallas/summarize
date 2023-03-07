@@ -1,17 +1,15 @@
-use clap::Parser;
+use clap::{Parser, crate_authors, crate_version, crate_description};
 use std::path::PathBuf;
 
 pub mod gpt;
 pub mod whisper;
 
-// fn exit(msg: &str) -> ! {
-//     let err = clap::Error::print( ErrorKind::InvalidValue);
-//     err.exit();
-// }
 
-/// CLI app to summarize audio/video files"
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(name = "summarize")]
+#[command(version = crate_version!())]
+#[command(about = crate_description!())]
+#[command(author = crate_authors!())]
 struct Args {
     /// The path for the file to summarize
     file: PathBuf,
@@ -19,7 +17,6 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-
 
     let api_key = std::env::var("OPENAI_API_KEY")
         .expect("Please set the OPENAI_API_KEY environment variable");
