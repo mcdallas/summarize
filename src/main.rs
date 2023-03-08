@@ -1,9 +1,11 @@
 use clap::{Parser, crate_authors, crate_version, crate_description};
 use std::path::PathBuf;
+use tokio::{self, fs::File, io::AsyncWriteExt};
+use tempdir::TempDir;
 
 pub mod gpt;
 pub mod whisper;
-
+pub mod util;
 
 #[derive(Parser, Debug)]
 #[command(name = "summarize")]
@@ -14,23 +16,35 @@ struct Args {
     /// The path for the file to summarize
     file: PathBuf,
 }
-
-fn main() {
+#[tokio::main(flavor = "multi_thread")]
+async fn main() {
     let args = Args::parse();
 
     let api_key = std::env::var("OPENAI_API_KEY")
         .expect("Please set the OPENAI_API_KEY environment variable");
 
-    
+    let tmp_dir = TempDir::new("audio").expect("Could not create temporary directory");
+    let segments = util::split_file(args.file.clone(), &tmp_dir).await.expect("Could not split file");
+
+    let mut transcribed = Vec::new();
+
     let client = whisper::WhisperClient::new(api_key.clone());
-    let transcript = client.transcribe(args.file).expect("Could not make request to API");
+    for segment in segments {
+        let segment = client.transcribe(segment).await.expect("Could not transcribe audio");
+        transcribed.push(segment);
+    }
+
+    tmp_dir.close().expect("Could not delete temporary directory");
+
+    let transcript = transcribed.iter().map(|segment| {
+        segment.transcript.clone()
+    }).collect::<Vec<String>>().join("\n");
+
+    let chunks = util::split_text_to_chunks(transcript);
 
     let client = gpt::GPTClient::new(api_key);
-    let mut response = client.prompt(transcript).expect("Could not make request to API");
 
-    response.push('\n');
-    if let Some(r) = response.strip_prefix("\n\n") {
-        response = String::from(r);
-    }
-    println!("{}", response);
+    let summary = client.summarize(chunks).await.expect("Could not make request to API");
+
+    println!("{}", summary);
 }

@@ -1,6 +1,7 @@
-use reqwest::blocking::Client;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use anyhow::Result;
+use crate::util::Summary;
 
 const OPENAI_API_URL: &str = "https://api.openai.com/v1/chat/completions";
 const OPENAI_MODEL: &str = "gpt-3.5-turbo";
@@ -49,8 +50,8 @@ impl GPTClient {
         }
     }
 
-    pub fn prompt(&self, prompt: String) -> Result<String> {
-        let behavior = String::from("Summarize the following text:");
+    pub async fn prompt(&self, prompt: &str, behavior: &str) -> Result<String> {
+        let behavior = String::from(behavior);
 
         let messages = vec![
             Message{
@@ -59,7 +60,7 @@ impl GPTClient {
             },
             Message{
                 role: Role::user,
-                content: prompt
+                content: String::from(prompt),
             }
         ];
 
@@ -71,13 +72,29 @@ impl GPTClient {
 
         let client = Client::new();
         let res = client.post(&self.url)
-        .bearer_auth(&self.api_key)
+            .bearer_auth(&self.api_key)
             .json(&prompt)
-            .send()?
-            .json::<ApiResponse>()?;
+            .send()
+            .await?
+            .json::<ApiResponse>().await?;
+        
 
         let answer = res.choices[0].message.content.clone();
 
         Ok(answer)
+    }
+
+    pub async fn summarize(&self, mut summaries: Vec<Summary>) -> Result<String> {
+        summaries.reverse();
+        let n_summaries = summaries.len();
+        let first = summaries.pop().unwrap();
+        let mut current_summary = self.prompt(&first.text, "Summarize the following text:").await?;
+        
+        for (i, summary) in summaries.iter().enumerate() {
+            let behavior = format!("Your task is to summarize in several paragraphs a large text that is presented in chunks. This will be chunk {} of {}. The summary of the previous chunks is the following: ```{}``` You must incorporate the previous summary into the summary of the whole text. This is the current chunk: ", i+1, n_summaries , current_summary);
+            current_summary = self.prompt(&summary.text, &behavior).await?;
+        }
+
+        Ok(current_summary)
     }
 }
