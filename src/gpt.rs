@@ -4,7 +4,7 @@ use anyhow::Result;
 use crate::util::Summary;
 
 const OPENAI_API_URL: &str = "https://api.openai.com/v1/chat/completions";
-const OPENAI_MODEL: &str = "gpt-3.5-turbo";
+const OPENAI_MODEL: &str = "gpt-4-1106-preview";
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

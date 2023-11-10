@@ -26,7 +26,7 @@ pub async fn split_file(path: PathBuf, tmp_dir: &TempDir) -> Result<Vec<Segment>
     .stderr(Stdio::null())
     .spawn()?;
 
-    let status = command.wait().await?;
+    let _status = command.wait().await?;
 
 
     let mut filenames: Vec<PathBuf> = tmp_dir.path().read_dir()?.map(|entry| {
@@ -50,7 +50,7 @@ pub struct Summary {
 }
 
 
-const WORDS_PER_CHUNK: usize = 2500;
+const WORDS_PER_CHUNK: usize = 2500 * 16;  // 8k tokens is around 2500 words. The new GPT-4-turbo model has a 128k context
 
 pub fn split_text_to_chunks(text: String) -> Vec<Summary> {
     let mut chunks = Vec::new();
