@@ -1,7 +1,9 @@
 use clap::{Parser, crate_authors, crate_version, crate_description};
 use std::path::PathBuf;
-use tokio::{self, fs::File, io::AsyncWriteExt};
+use tokio::{self, task};
 use tempdir::TempDir;
+use futures::future::join_all;
+use log::debug;
 
 pub mod gpt;
 pub mod whisper;
@@ -26,15 +28,40 @@ async fn main() {
     let tmp_dir = TempDir::new("audio").expect("Could not create temporary directory");
     let segments = util::split_file(args.file.clone(), &tmp_dir).await.expect("Could not split file");
 
-    let mut transcribed = Vec::new();
+    
+    let mut transcribe_tasks = vec![];
 
-    let client = whisper::WhisperClient::new(api_key.clone());
     for segment in segments {
-        let segment = client.transcribe(segment).await.expect("Could not transcribe audio");
-        transcribed.push(segment);
+        let client = whisper::WhisperClient::new(api_key.clone());
+        let task = task::spawn(async move {
+            debug!("Transcribing segment {:?}", segment.index);
+            let res = client.transcribe(segment).await;
+            
+            match res {
+                Ok(segment) => {
+                    debug!("End segment {:?}", segment.index);
+                    return segment
+                },
+                Err(e) => panic!("Error transcribing segment: {}", e),
+            }
+        });
+        transcribe_tasks.push(task);
     }
 
+    let results: Vec<_> = join_all(transcribe_tasks).await.into_iter().collect();
+
+
     tmp_dir.close().expect("Could not delete temporary directory");
+
+    let mut transcribed = Vec::new();
+
+    for result in results {
+        match result {
+            Ok(segment) => transcribed.push(segment),
+            
+            Err(e) => eprintln!("Task failed: {}", e),
+        }
+    }
 
     let transcript = transcribed.iter().map(|segment| {
         segment.transcript.clone()
